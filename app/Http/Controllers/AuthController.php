@@ -41,28 +41,58 @@ class AuthController extends Controller
 
     public function login(Request $request)
     {
-        $request->validate([
-            'email' => 'required|string|email',
-            'password' => 'required',
-        ]);
+        try {
+            $request->validate([
+                'email' => 'required|string|email',
+                'password' => 'required',
+            ]);
+        } catch (ValidationException $e) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Validasi gagal',
+                'errors' => $e->errors(),
+            ], 422);
+        }
 
+        // Cek apakah email ada
         $user = User::where('email', $request->email)->first();
 
-        if (!$user || !Hash::check($request->password, $user->password)) {
-            return response()->json(['message' => 'Invalid credentials'], 401);
+        if (!$user) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Email tidak terdaftar. Silakan cek kembali atau daftar akun baru.',
+            ], 422); // 404 untuk email tidak ditemukan
+        }
+
+        // Cek apakah password benar
+        if (!Hash::check($request->password, $user->password)) {
+            return response()->json([
+                'status' => 'error',
+                'message' => 'Password yang Anda masukkan salah. Silakan coba lagi.',
+                // 'display_duration' => 15000
+            ], 422); //password salah
         }
 
         $token = $user->createToken('auth_token')->plainTextToken;
 
         return response()->json([
-            'message' => 'Login successful',
+            'status' => 'success',
+            'message' => 'Login berhasil',
             'token' => $token,
+            'user' => [
+                'id' => $user->id,
+                'name' => $user->name,
+                'email' => $user->email,
+            ]
         ]);
     }
 
     public function logout(Request $request)
     {
         $request->user()->tokens()->delete();
-        return response()->json(['message' => 'Logged out']);
+        return response()->json([
+            'status' => 'success',
+            'message' => 'Logged out'
+        ]);
     }
 }
